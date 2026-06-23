@@ -1,0 +1,115 @@
+========================================================
+DEPLOY THE KSP QUOTE & INVOICE APP  (for David)
+========================================================
+
+You only do this ONCE. After that, Kim just uses the link.
+
+------------------------------------------------------
+THIS IS A BRAND-NEW, SEPARATE PROJECT
+------------------------------------------------------
+- This will NOT touch GrassRoots.
+- This will NOT touch Project156.
+- This will NOT touch Cherry.
+- This will NOT touch Granny Language Lessons.
+- This will NOT touch any existing Render service.
+- This creates a NEW standalone GitHub repo and a NEW
+  standalone Render Static Site only.
+
+------------------------------------------------------
+THE FOLDER YOU UPLOAD
+------------------------------------------------------
+Upload the CONTENTS of this folder:
+
+  C:\Users\nardo\Desktop\Kim Schafer\KSP-RENDER-READY
+
+That means these items, placed at the repo ROOT:
+  - index.html
+  - manifest.json
+  - service-worker.js
+  - icons   (the whole folder)
+
+Do NOT upload the wrapping "KSP-RENDER-READY" folder itself --
+upload what is INSIDE it. (The two .txt help files can be
+uploaded too; they don't affect the app.)
+
+
+========================================================
+METHOD 1 -- EASIEST  (GitHub upload through the browser)
+========================================================
+1.  Go to GitHub:  https://github.com/new
+2.  Create a new repo called:  ksp-quote-invoice-app
+       (leave README / .gitignore / license UNCHECKED so it is empty)
+       Click Create repository.
+3.  Click the link "uploading an existing file".
+       Open the folder:
+         C:\Users\nardo\Desktop\Kim Schafer\KSP-RENDER-READY
+       Select everything inside it (index.html, manifest.json,
+       service-worker.js, and the icons folder) and drag it in.
+4.  Click Commit changes.
+5.  Go to Render:  https://dashboard.render.com
+6.  Click  New +  >  Static Site
+7.  Connect / choose the GitHub repo:  ksp-quote-invoice-app
+8.  Service name:  ksp-quote-invoice-app
+9.  Build command:  leave blank
+10. Publish directory:  .        (just a single dot)
+11. Click Create Static Site (Deploy). Wait until it says "Live".
+
+Then copy the Render URL and send it to Kim. Done.
+
+
+========================================================
+METHOD 2 -- POWERSHELL COMMANDS  (if you have Git installed)
+========================================================
+First create the empty repo on GitHub (steps 1-2 of Method 1).
+Then open PowerShell and run these commands EXACTLY,
+replacing YOUR-USERNAME with your GitHub username:
+
+  cd "C:\Users\nardo\Desktop\Kim Schafer\KSP-RENDER-READY"
+  git init
+  git add .
+  git commit -m "Initial commit - KSP Quote & Invoice App"
+  git branch -M main
+  git remote add origin https://github.com/YOUR-USERNAME/ksp-quote-invoice-app.git
+  git push -u origin main
+
+That uploads the files to the repo root.
+Then do Method 1 steps 5-11 on Render to deploy.
+
+(Note: this pushes the whole folder, including the two .txt help
+files. They do not affect the app. If you prefer the repo to
+contain ONLY the app files, use Method 1 instead.)
+
+
+========================================================
+CORRECT RENDER SETTINGS  (confirm these)
+========================================================
+  Service type:       Static Site
+  Name:               ksp-quote-invoice-app
+  Branch:             main
+  Root Directory:     (leave blank)
+  Build command:      (leave blank)
+  Publish directory:  .
+
+(If you uploaded the whole KSP-RENDER-READY folder instead of its
+contents, set Publish directory to:  KSP-RENDER-READY )
+
+
+========================================================
+FINAL RESULT
+========================================================
+Render gives you a public link like:
+  https://ksp-quote-invoice-app.onrender.com
+
+1. Open it yourself once. Make a test quote, download the PDF.
+2. Send the link to Kim.
+3. On her phone Kim opens it, taps Share/Menu, then
+   "Add to Home Screen". The KSP icon appears and opens
+   like a normal app.
+
+UPDATING LATER:
+  Edit files -> commit/upload to the same GitHub repo ->
+  Render redeploys automatically -> Kim re-opens the app.
+
+REMINDER:
+  Records are saved on Kim's device. Use the in-app EXPORT
+  button regularly to back up for tax time.
