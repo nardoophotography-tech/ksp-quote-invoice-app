@@ -564,7 +564,7 @@ function records(type){return type==='invoice'?invoices():(type==='expense'?expe
 function saveRecords(type,arr){save(type==='invoice'?K.inv:(type==='expense'?K.exp:K.q),arr);}
 
 /* ---------- router ---------- */
-const ROUTES=[['dashboard','Dashboard'],['scan','New Scan'],['quote','New Quote'],['invoice','New Invoice'],['quotes','Quotes'],['invoices','Invoices'],['expenses','Expenses'],['customers','Customers'],['export','Export'],['settings','Settings']];
+const ROUTES=[['dashboard','Dashboard'],['scan','New Scan'],['quote','New Quote'],['invoice','New Invoice'],['quotes','Quotes'],['invoices','Invoices'],['expenses','Expenses'],['reminders','Reminders'],['customers','Customers'],['export','Export'],['settings','Settings']];
 let state={page:'dashboard',editId:null,editType:null,items:[],scanRef:null};
 function go(page,opts={}){state.page=page;Object.assign(state,opts);renderNav();window.scrollTo(0,0);render();}
 function renderNav(){document.getElementById('nav').innerHTML=ROUTES.map(([id,label])=>`<button class="${state.page===id?'active':''}" onclick="go('${id}')">${label}</button>`).join('');}
@@ -579,6 +579,7 @@ function render(){
   else if(state.page==='quotes')app.innerHTML=viewList('quote');
   else if(state.page==='invoices')app.innerHTML=viewList('invoice');
   else if(state.page==='expenses')app.innerHTML=viewExpenses();
+  else if(state.page==='reminders')app.innerHTML=viewReminders();
   else if(state.page==='customers')renderCustomers(app);
   else if(state.page==='export')app.innerHTML=viewExport();
   else if(state.page==='settings')renderSettings(app);
@@ -859,6 +860,88 @@ function saveExpense(){
   toast('Expense saved');go('expenses');
 }
 
+/* ----- Reminders ----- */
+function viewReminders(){
+  const today = todayISO();
+  const allInvs = invoices();
+  const unpaid = allInvs.filter(i => i.status !== 'Paid');
+  const paid = allInvs.filter(i => i.status === 'Paid').sort((a,b)=>(b.paidDate||'').localeCompare(a.paidDate||'')).slice(0,5);
+  
+  const overdue = unpaid.filter(i => i.dueDate && i.dueDate < today).sort((a,b)=>a.dueDate.localeCompare(b.dueDate));
+  const dueToday = unpaid.filter(i => i.dueDate === today);
+  const upcoming = unpaid.filter(i => !i.dueDate || i.dueDate > today).sort((a,b)=>(a.dueDate||'').localeCompare(b.dueDate||''));
+
+  const renderGroup = (title, list, emptyMsg, cssClass) => {
+    return `<h3>${title} (${list.length})</h3>
+    ${list.length ? `<table class="list">
+      ${list.map(r => `<tr style="${cssClass?'border-left:4px solid '+cssClass:''}">
+        <td><b>${esc(r.number)}</b><br><small>${esc(r.customer?.name||'')}</small></td>
+        <td>Due: ${fmtDate(r.dueDate)}</td>
+        <td class="mono right"><b>${money(r.total)}</b></td>
+        <td class="right" style="white-space:nowrap;">
+          ${r.status!=='Paid' ? `
+            <button class="mini" onclick="copyReminder('sms','${r.id}')">📱 SMS</button>
+            <button class="mini" onclick="copyReminder('email','${r.id}')">📧 Email</button>
+            <button class="mini ok" onclick="markPaidFromReminder('${r.id}')">✓ Paid</button>
+          ` : `<span class="tag ok">Paid</span>`}
+          <button class="mini" onclick="editDoc('invoice','${r.id}')">View</button>
+        </td>
+      </tr>`).join('')}
+    </table>` : `<div class="empty" style="padding:10px">${emptyMsg}</div>`}`;
+  };
+
+  return `<h1>Payment Reminders</h1><p class="sub">Track unpaid invoices and copy ready-to-send reminders.</p>
+  <div class="panel">
+    ${renderGroup('Overdue', overdue, 'No overdue invoices! 🎉', 'var(--danger)')}
+    ${renderGroup('Due Today', dueToday, 'Nothing due today.', 'var(--gold)')}
+    ${renderGroup('Upcoming / Unpaid', upcoming, 'No upcoming unpaid invoices.', '')}
+  </div>
+  <div class="panel">
+    ${renderGroup('Recently Paid', paid, 'No recently paid invoices.', 'var(--ok)')}
+  </div>`;
+}
+
+function markPaidFromReminder(id){
+  if(confirm('Mark this invoice as Paid?')){
+    setStatus('invoice', id, 'Paid');
+    render();
+  }
+}
+
+function copyReminder(format, id){
+  const r = invoices().find(x => x.id === id);
+  if(!r) return;
+  const s = settings();
+  let text = '';
+  if(format === 'sms'){
+    text = `Hi ${r.customer?.name||'there'}, friendly reminder from ${s.businessName||'us'}. Invoice ${r.number} for $${r.total} was due on ${fmtDate(r.dueDate)}.\nBank: ${s.bankName} BSB: ${s.bsb} Acc: ${s.accNumber}\nPlease let me know when paid! Thanks, ${s.businessName.split(' ')[0]}.`;
+  } else {
+    text = `Hi ${r.customer?.name||'there'},\n\nThis is a friendly reminder regarding Invoice ${r.number} for $${r.total} which was due on ${fmtDate(r.dueDate)}.\n\nIf payment has already been made, please ignore this message. Otherwise, we would appreciate it if you could process the payment at your earliest convenience.\n\nBank: ${s.bankName}\nAccount Name: ${s.accName}\nBSB: ${s.bsb}\nAccount Number: ${s.accNumber}\n\nThank you for your business!\n${s.businessName}\n${s.phone}`;
+  }
+  
+  if (navigator.clipboard && window.isSecureContext) {
+    navigator.clipboard.writeText(text).then(() => {
+      toast(format.toUpperCase() + ' reminder copied!');
+    }).catch(err => {
+      prompt('Copy to clipboard failed. Copy the text manually:', text);
+    });
+  } else {
+    const textArea = document.createElement("textarea");
+    textArea.value = text;
+    textArea.style.position = "fixed";
+    document.body.appendChild(textArea);
+    textArea.focus();
+    textArea.select();
+    try {
+      document.execCommand('copy');
+      toast(format.toUpperCase() + ' reminder copied!');
+    } catch (err) {
+      prompt('Copy this text manually:', text);
+    }
+    document.body.removeChild(textArea);
+  }
+}
+
 /* ----- Customers ----- */
 function renderCustomers(app){
   const list=customers().slice().sort((a,b)=>(a.name||'').localeCompare(b.name||''));const e=state._editCust||{};
@@ -1095,6 +1178,7 @@ window.saveDoc=saveDoc;window.generatePDF=generatePDF;window.setStatus=setStatus
 window.pickCust=pickCust;window.saveSettingsForm=saveSettingsForm;window.exportTaxZip=exportTaxZip;window.digitise=digitise;window.syncDates=syncDates;
 window.filterRows=filterRows;window.markPaid=markPaid;window.duplicateToInvoice=duplicateToInvoice;window.saveCust=saveCust;window.editCust=editCust;window.cancelCust=cancelCust;window.installApp=installApp;
 window.newExpense=newExpense;window.editExpense=editExpense;window.saveExpense=saveExpense;window.calcExpGst=calcExpGst;
+window.copyReminder=copyReminder;window.markPaidFromReminder=markPaidFromReminder;
 </script>
 </body>
 </html>
