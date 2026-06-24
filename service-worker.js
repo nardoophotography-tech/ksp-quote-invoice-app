@@ -1,5 +1,5 @@
 /* KSP Quote & Invoice App — service worker (app-shell cache, offline support) */
-const CACHE = 'ksp-app-v1';
+const CACHE = 'ksp-app-v2';
 const ASSETS = [
   './',
   './index.html',

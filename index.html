@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
 <title>KSP Quote &amp; Invoice App</title>
 <meta name="theme-color" content="#292D30">
-<meta name="description" content="Kim Schafer Plastering — quotes &amp; invoices">
+<meta name="description" content="Kym Schafer Plastering — quotes &amp; invoices">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -537,7 +537,7 @@ document.getElementById('brandLogo').src = LOGO;
 const K={set:'ksp_settings',cust:'ksp_customers',q:'ksp_quotes',inv:'ksp_invoices',scan:'ksp_scans',exp:'ksp_expenses'};
 function load(k,def){try{const v=JSON.parse(localStorage.getItem(k));return v??def;}catch(e){return def;}}
 function save(k,v){localStorage.setItem(k,JSON.stringify(v));}
-const DEFAULTS={businessName:'Kim Schafer Plastering',phone:'0435 853 897',email:'kspplastering@gmail.com',serviceArea:'Servicing Sunshine Coast & Surrounds',facebook:'KSP Plastering',
+const DEFAULTS={businessName:'Kym Schafer Plastering',phone:'0435 853 897',email:'kspplastering@gmail.com',serviceArea:'Servicing Sunshine Coast & Surrounds',facebook:'KSP Plastering',
   bankName:'Commonwealth Bank',accName:'Kim Schafer Plastering',bsb:'064 123',accNumber:'1054 9877',
   gstRate:10,gstEnabled:true,quotePrefix:'QT',invoicePrefix:'INV',quoteSeq:0,invoiceSeq:0};
 function effGst(){const s=settings();return s.gstEnabled?(Number(s.gstRate)||0):0;}
@@ -914,7 +914,7 @@ function buildPDF(type,rec){
   function header(){
     doc.addImage(LOGO,'PNG',M,8,26,26);
     doc.setTextColor(...CHAR);doc.setFont('helvetica','bold');doc.setFontSize(15);
-    doc.text(s.businessName||'Kim Schafer Plastering',PW-M,14,{align:'right'});
+    doc.text(s.businessName||'Kym Schafer Plastering',PW-M,14,{align:'right'});
     doc.setFont('helvetica','normal');doc.setFontSize(8.4);doc.setTextColor(...GREY);
     let yy=19.5;[s.phone+'  ·  '+s.email,s.serviceArea,'Facebook: '+s.facebook].forEach(l=>{doc.text(l,PW-M,yy,{align:'right'});yy+=4.3;});
     doc.setDrawColor(...GOLD);doc.setLineWidth(0.6);doc.line(M,37,PW-M,37);
@@ -925,7 +925,7 @@ function buildPDF(type,rec){
     doc.setFillColor(...CHAR);doc.rect(0,top,PW,23,'F');
     doc.setFillColor(...GOLD);doc.rect(0,top,PW,1.4,'F');
     doc.setTextColor(...GOLD);doc.setFont('helvetica','bold');doc.setFontSize(11);
-    doc.text((s.businessName||'Kim Schafer Plastering').toUpperCase(),PW/2,top+8.5,{align:'center'});
+    doc.text((s.businessName||'Kym Schafer Plastering').toUpperCase(),PW/2,top+8.5,{align:'center'});
     doc.setFont('helvetica','italic');doc.setFontSize(9);doc.setTextColor(206,196,186);
     doc.text(slogan,PW/2,top+14,{align:'center'});
     doc.setFont('helvetica','normal');doc.setFontSize(7);doc.setTextColor(170,162,152);
