@@ -534,7 +534,7 @@ const LOGO = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAWgAAAFoCAIAAAD1h/aC
 document.getElementById('brandLogo').src = LOGO;
 
 /* ---------- storage ---------- */
-const K={set:'ksp_settings',cust:'ksp_customers',q:'ksp_quotes',inv:'ksp_invoices',scan:'ksp_scans'};
+const K={set:'ksp_settings',cust:'ksp_customers',q:'ksp_quotes',inv:'ksp_invoices',scan:'ksp_scans',exp:'ksp_expenses'};
 function load(k,def){try{const v=JSON.parse(localStorage.getItem(k));return v??def;}catch(e){return def;}}
 function save(k,v){localStorage.setItem(k,JSON.stringify(v));}
 const DEFAULTS={businessName:'Kim Schafer Plastering',phone:'0435 853 897',email:'kspplastering@gmail.com',serviceArea:'Servicing Sunshine Coast & Surrounds',facebook:'KSP Plastering',
@@ -544,7 +544,7 @@ function effGst(){const s=settings();return s.gstEnabled?(Number(s.gstRate)||0):
 function settings(){return Object.assign({},DEFAULTS,load(K.set,{}));}
 function saveSettings(s){save(K.set,s);}
 function quotes(){return load(K.q,[]);}function invoices(){return load(K.inv,[]);}
-function customers(){return load(K.cust,[]);}function scans(){return load(K.scan,[]);}
+function customers(){return load(K.cust,[]);}function scans(){return load(K.scan,[]);}function expenses(){return load(K.exp,[]);}
 
 /* ---------- helpers ---------- */
 function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,7);}
@@ -560,11 +560,11 @@ function nextNumber(type){const s=settings();const seqKey=type==='invoice'?'invo
 function calcTotals(items,gstRate){let sub=0;items.forEach(it=>{sub+=(Number(it.qty)||0)*(Number(it.rate)||0);});const gst=sub*(Number(gstRate)||0)/100;return{sub:round2(sub),gst:round2(gst),total:round2(sub+gst)};}
 function round2(n){return Math.round((Number(n)||0)*100)/100;}
 function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('show'),2200);}
-function records(type){return type==='invoice'?invoices():quotes();}
-function saveRecords(type,arr){save(type==='invoice'?K.inv:K.q,arr);}
+function records(type){return type==='invoice'?invoices():(type==='expense'?expenses():quotes());}
+function saveRecords(type,arr){save(type==='invoice'?K.inv:(type==='expense'?K.exp:K.q),arr);}
 
 /* ---------- router ---------- */
-const ROUTES=[['dashboard','Dashboard'],['scan','New Scan'],['quote','New Quote'],['invoice','New Invoice'],['quotes','Quotes'],['invoices','Invoices'],['customers','Customers'],['export','Export'],['settings','Settings']];
+const ROUTES=[['dashboard','Dashboard'],['scan','New Scan'],['quote','New Quote'],['invoice','New Invoice'],['quotes','Quotes'],['invoices','Invoices'],['expenses','Expenses'],['customers','Customers'],['export','Export'],['settings','Settings']];
 let state={page:'dashboard',editId:null,editType:null,items:[],scanRef:null};
 function go(page,opts={}){state.page=page;Object.assign(state,opts);renderNav();window.scrollTo(0,0);render();}
 function renderNav(){document.getElementById('nav').innerHTML=ROUTES.map(([id,label])=>`<button class="${state.page===id?'active':''}" onclick="go('${id}')">${label}</button>`).join('');}
@@ -575,8 +575,10 @@ function render(){
   if(state.page==='dashboard')app.innerHTML=viewDashboard();
   else if(state.page==='scan')renderScan(app);
   else if(state.page==='quote'||state.page==='invoice')renderDocForm(app,state.page);
+  else if(state.page==='expense')renderExpenseForm(app);
   else if(state.page==='quotes')app.innerHTML=viewList('quote');
   else if(state.page==='invoices')app.innerHTML=viewList('invoice');
+  else if(state.page==='expenses')app.innerHTML=viewExpenses();
   else if(state.page==='customers')renderCustomers(app);
   else if(state.page==='export')app.innerHTML=viewExport();
   else if(state.page==='settings')renderSettings(app);
@@ -593,9 +595,12 @@ function recentTable(type){
 }
 function viewDashboard(){
   const yr=curYear();const s=settings();const qs=quotes().filter(q=>(q.date||'').startsWith(yr));const ivs=invoices().filter(i=>(i.date||'').startsWith(yr));
+  const exps=expenses().filter(e=>(e.date||'').startsWith(yr));
   const invVal=ivs.reduce((a,b)=>a+(b.total||0),0);
   const paid=ivs.filter(i=>i.status==='Paid');const unpaid=ivs.filter(i=>i.status!=='Paid');
   const paidVal=paid.reduce((a,b)=>a+(b.total||0),0);const outVal=unpaid.reduce((a,b)=>a+(b.total||0),0);
+  const expVal=exps.reduce((a,b)=>a+(b.amount||0),0);
+  const expGst=exps.reduce((a,b)=>a+((b.taxDeductible!==false)?(b.gst||0):0),0);
   const installed=window.matchMedia&&window.matchMedia('(display-mode: standalone)').matches;
   return `<h1>Dashboard</h1><p class="sub">${esc(s.businessName)} — overview for ${yr}</p>
   <div class="warn-banner">⚠️ <b>Records are saved on this device only.</b> Tap <b>Export</b> regularly to back them up for tax time.</div>
@@ -605,11 +610,13 @@ function viewDashboard(){
     <div class="card gold"><div class="big">${money(invVal)}</div><div class="lbl">Invoice value</div></div>
     <div class="card"><div class="big" style="color:var(--danger)">${money(outVal)}</div><div class="lbl">Outstanding (${unpaid.length})</div></div>
     <div class="card"><div class="big" style="color:var(--ok)">${money(paidVal)}</div><div class="lbl">Paid (${paid.length})</div></div>
+    <div class="card"><div class="big">${money(expVal)}</div><div class="lbl">Expenses this year</div></div>
   </div>
   <div class="actions">
     <button class="btn" onclick="go('scan')">📷 New Scan</button>
     <button class="btn dark" onclick="newDoc('quote')">＋ New Quote</button>
     <button class="btn dark" onclick="newDoc('invoice')">＋ New Invoice</button>
+    <button class="btn dark" onclick="newExpense()">＋ New Expense</button>
     <button class="btn gold" onclick="go('export')">⤓ Export for Tax Time</button>
   </div>
   ${installed?'':`<div class="panel" id="installPanel"><h3>📲 Install on your phone</h3>
@@ -782,6 +789,76 @@ function filterRows(q){q=(q||'').toLowerCase().trim();document.querySelectorAll(
 function setStatus(type,id,st){const list=records(type);const r=list.find(x=>x.id===id);if(r){r.status=st;if(type==='invoice'&&st==='Paid'&&!r.paidDate)r.paidDate=todayISO();saveRecords(type,list);toast('Status updated');}}
 function delDoc(type,id){if(!confirm('Delete this document?'))return;saveRecords(type,records(type).filter(r=>r.id!==id));render();toast('Deleted');}
 
+/* ----- Expenses ----- */
+const EXP_CATS=['Materials','Tools','Fuel','Vehicle','Equipment','Phone / internet','Insurance','Subcontractor','Office/admin','Bank fees','Advertising','Other'];
+function newExpense(){state.editId=null;state.editType='expense';state._editRec={date:todayISO(),taxDeductible:true,status:'Saved'};go('expense');}
+function editExpense(id){const rec=expenses().find(r=>r.id===id);if(!rec)return;state.editId=id;state.editType='expense';state._editRec=JSON.parse(JSON.stringify(rec));go('expense');}
+function viewExpenses(){
+  const list=expenses().slice().sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+  return `<h1>Expenses & Receipts</h1><p class="sub">${list.length} expense${list.length===1?'':'s'} saved</p>
+  <div class="actions" style="margin-bottom:12px"><button class="btn" onclick="newExpense()">＋ New Expense</button></div>
+  ${list.length?`<div class="searchbar"><input placeholder="🔍 Search expenses" oninput="filterRows(this.value)"></div>
+  <table class="list"><tr><th>Date</th><th>Supplier</th><th>Category</th><th class="right">Amount</th><th>Status</th><th></th></tr>
+  ${list.map(r=>`<tr data-search="${esc([r.supplier,r.category,fmtDate(r.date),r.status].join(' ').toLowerCase())}">
+    <td>${fmtDate(r.date)}</td><td><b>${esc(r.supplier)}</b></td><td><span class="tag">${esc(r.category)}</span></td><td class="mono right">${money(r.amount)}</td>
+    <td><span class="tag ${r.status==='Exported'?'sent':''}">${esc(r.status||'Saved')}</span></td>
+    <td class="right" style="white-space:nowrap"><button class="mini" onclick="editExpense('${r.id}')">View/Edit</button> <button class="mini del" onclick="delDoc('expense','${r.id}')">Del</button></td>
+  </tr>`).join('')}</table>`:`<div class="empty">No expenses yet.</div>`}`;
+}
+function renderExpenseForm(app){
+  const r=state._editRec||{};
+  app.innerHTML=`<h1>${r.id?'Edit':'New'} Expense</h1><p class="sub">Record a business purchase or receipt</p>
+  <div class="panel">
+    <div class="row c2"><div><label>Date</label><input type="date" id="e_date" value="${esc(r.date)}"></div><div><label>Supplier / Shop</label><input id="e_supplier" value="${esc(r.supplier||'')}"></div></div>
+    <div><label>Description (What did you buy?)</label><input id="e_description" value="${esc(r.description||'')}"></div>
+    <div class="row c2"><div><label>Category</label><select id="e_category"><option value="">-- Select --</option>${EXP_CATS.map(c=>`<option ${r.category===c?'selected':''}>${c}</option>`).join('')}</select></div><div><label>Payment Method</label><input id="e_payment" value="${esc(r.payment||'')}" placeholder="e.g. Card, Cash"></div></div>
+    <div class="row c2"><div><label>Amount inc. GST</label><input type="number" step="0.01" id="e_amount" value="${esc(r.amount||'')}" oninput="calcExpGst()"></div><div><label>GST Portion</label><input type="number" step="0.01" id="e_gst" value="${esc(r.gst||'')}"></div></div>
+    <div class="row c2"><div><label style="display:flex;align-items:center;gap:6px;cursor:pointer"><input type="checkbox" id="e_tax" ${r.taxDeductible!==false?'checked':''} style="width:20px;height:20px;margin:0"> Tax Deductible Business Expense</label></div><div><label>Status</label><select id="e_status"><option ${r.status==='Saved'?'selected':''}>Saved</option><option ${r.status==='Exported'?'selected':''}>Exported</option></select></div></div>
+  </div>
+  <div class="panel"><h3>Receipt Photo (Optional)</h3>
+    <div class="flex" style="margin-bottom:12px"><label class="btn">📷 Upload Receipt<input type="file" id="e_file" accept="image/*" capture="environment" style="display:none"></label></div>
+    <div id="e_prevWrap">${r.receiptData?`<img class="prev" src="${r.receiptData}" style="max-height:300px;border-radius:6px;border:1px solid var(--line)">`:''}</div>
+    <div class="muted" style="margin-top:8px;font-size:12px" id="e_filemsg">Images are compressed to save device storage.</div>
+  </div>
+  <div class="panel"><h3>Notes</h3><textarea id="e_notes">${esc(r.notes||'')}</textarea></div>
+  <div class="actions">
+    <button class="btn" onclick="saveExpense()">💾 Save Expense</button>
+    <button class="btn ghost" onclick="go('expenses')">Cancel</button>
+  </div>`;
+  const fi=document.getElementById('e_file');
+  if(fi)fi.onchange=e=>{
+    const file=e.target.files[0];if(!file)return;
+    document.getElementById('e_filemsg').textContent="Compressing image...";
+    const reader=new FileReader();
+    reader.onload=ev=>{
+      const img=new Image();
+      img.onload=()=>{
+        const canvas=document.createElement('canvas');let w=img.width;let h=img.height;
+        const max=800;if(w>max||h>max){if(w>h){h=Math.floor(h*(max/w));w=max;}else{w=Math.floor(w*(max/h));h=max;}}
+        canvas.width=w;canvas.height=h;const ctx=canvas.getContext('2d');ctx.drawImage(img,0,0,w,h);
+        const b64=canvas.toDataURL('image/jpeg',0.7);
+        state._editRec.receiptData=b64;
+        document.getElementById('e_prevWrap').innerHTML=`<img class="prev" src="${b64}" style="max-height:300px;border-radius:6px;border:1px solid var(--line)">`;
+        document.getElementById('e_filemsg').textContent="Receipt attached (compressed).";
+      };
+      img.src=ev.target.result;
+    };
+    reader.readAsDataURL(file);
+  };
+}
+function calcExpGst(){const v=Number(document.getElementById('e_amount').value)||0;document.getElementById('e_gst').value=round2(v/11);}
+function saveExpense(){
+  const g=id=>document.getElementById(id).value;
+  const data={date:g('e_date'),supplier:g('e_supplier'),description:g('e_description'),category:g('e_category'),payment:g('e_payment'),amount:Number(g('e_amount'))||0,gst:Number(g('e_gst'))||0,taxDeductible:document.getElementById('e_tax').checked,status:g('e_status'),notes:g('e_notes'),receiptData:state._editRec.receiptData||null};
+  if(!data.supplier){toast('Please enter a supplier');return;}
+  if(!data.amount){toast('Please enter an amount');return;}
+  const list=expenses();
+  if(state.editId){Object.assign(list.find(x=>x.id===state.editId),data);}
+  else{list.push({id:uid(),created:new Date().toISOString(),...data});}
+  try{save(K.exp,list);}catch(e){if(e.name==='QuotaExceededError'){toast('Storage full! Remove receipt or old data.');return;}throw e;}
+  toast('Expense saved');go('expenses');
+}
+
 /* ----- Customers ----- */
 function renderCustomers(app){
   const list=customers().slice().sort((a,b)=>(a.name||'').localeCompare(b.name||''));const e=state._editCust||{};
@@ -949,17 +1026,18 @@ function generatePDF(type,rec,id){
 
 /* ----- Export / Tax Time page ----- */
 function viewExport(){
-  const qn=quotes().length, inn=invoices().length, cn=customers().length;
+  const qn=quotes().length, inn=invoices().length, cn=customers().length, en=expenses().length;
   return `<h1>Export / Tax Time</h1><p class="sub">Back up every record as a ZIP for your accountant or tax time.</p>
   <div class="warn-banner">⚠️ Records live on this device only. Export regularly so nothing is lost if the browser data is cleared or you change phones.</div>
   <div class="panel">
     <div class="grid cards">
       <div class="card accent"><div class="big">${qn}</div><div class="lbl">Quotes</div></div>
       <div class="card accent"><div class="big">${inn}</div><div class="lbl">Invoices</div></div>
+      <div class="card gold"><div class="big">${en}</div><div class="lbl">Expenses</div></div>
       <div class="card gold"><div class="big">${cn}</div><div class="lbl">Customers</div></div>
     </div>
     <div class="actions"><button class="btn gold" style="font-size:18px;padding:16px 26px" onclick="exportTaxZip()">⤓ EXPORT FOR TAX TIME</button></div>
-    <div class="note">The ZIP file contains:<br>• <b>KSP/invoices/${curYear()}/</b> and <b>KSP/quotes/${curYear()}/</b> — every PDF<br>• <b>invoices-summary.csv</b>, <b>quotes-summary.csv</b>, <b>customers.csv</b><br>• <b>KSP/data/</b> — JSON backups of everything<br>Save the ZIP somewhere safe — email it to yourself or your accountant.</div>
+    <div class="note">The ZIP file contains:<br>• <b>KSP/invoices/${curYear()}/</b> and <b>KSP/quotes/${curYear()}/</b> — every PDF<br>• <b>KSP/receipts/${curYear()}/</b> — expense photos<br>• <b>invoices-, quotes-, expenses-summary.csv</b><br>• <b>KSP/data/</b> — JSON backups of everything<br>Save the ZIP somewhere safe — email it to yourself or your accountant.</div>
   </div>`;
 }
 
@@ -976,19 +1054,32 @@ async function exportTaxZip(){
   const qs=quotes();let qCsv=['Quote Number,Customer Name,Date,Valid Until,Subtotal,GST,Total,Status'];
   qs.forEach(r=>{const d=buildPDF('quote',r);qF.file(pdfFileName('quote',r),d.output('blob'));
     qCsv.push([r.number,r.customer?.name,fmtDate(r.date),fmtDate(r.validUntil),r.subtotal,r.gst,r.total,r.status].map(csvEsc).join(','));});
+
+  const exps=expenses();let expCsv=['Date,Supplier,Description,Category,Payment,Amount,GST,Tax Deductible,Status,Notes'];
+  const receiptF=root.folder('receipts').folder(String(yr));
+  exps.forEach(e=>{
+    expCsv.push([fmtDate(e.date),e.supplier,e.description,e.category,e.payment,e.amount,e.gst,e.taxDeductible?'Yes':'No',e.status,e.notes].map(csvEsc).join(','));
+    if(e.receiptData){const clean=e.receiptData.replace(/^data:image\/\w+;base64,/,"");receiptF.file(`${fmtDate(e.date).replace(/\//g,'-')}_${(e.supplier||'').replace(/[\\/:*?"<>|]/g,'')}_${e.id}.jpg`,clean,{base64:true});}
+    e.status='Exported';
+  });
+  save(K.exp,exps);
+
   let cCsv=['Name,Phone,Email,Address,Suburb,State,Postcode,Notes'];
   customers().forEach(c=>cCsv.push([c.name,c.phone,c.email,c.address,c.suburb,c.state,c.postcode,c.notes].map(csvEsc).join(',')));
   const data=root.folder('data');
   data.file('customers.json',JSON.stringify(customers(),null,2));
   data.file('invoices.json',JSON.stringify(ivs,null,2));
   data.file('quotes.json',JSON.stringify(qs,null,2));
+  data.file('expenses.json',JSON.stringify(exps,null,2));
   root.folder('scans').folder('original-images').folder(String(yr)).file('README.txt','Original scanned photos are stored inside the app browser storage. They are included with each document on screen.');
   root.file('invoices-summary.csv',invCsv.join('\n'));
   root.file('quotes-summary.csv',qCsv.join('\n'));
+  root.file('expenses-summary.csv',expCsv.join('\n'));
   root.file('customers.csv',cCsv.join('\n'));
   const blob=await zip.generateAsync({type:'blob'});
   const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`KSP-tax-export-${yr}.zip`;a.click();
   toast('Tax export downloaded');
+  if(state.page==='export')render();
 }
 
 /* ---------- PWA install + boot ---------- */
@@ -1003,6 +1094,7 @@ window.go=go;window.newDoc=newDoc;window.editDoc=editDoc;window.addItem=addItem;
 window.saveDoc=saveDoc;window.generatePDF=generatePDF;window.setStatus=setStatus;window.delDoc=delDoc;window.delCust=delCust;
 window.pickCust=pickCust;window.saveSettingsForm=saveSettingsForm;window.exportTaxZip=exportTaxZip;window.digitise=digitise;window.syncDates=syncDates;
 window.filterRows=filterRows;window.markPaid=markPaid;window.duplicateToInvoice=duplicateToInvoice;window.saveCust=saveCust;window.editCust=editCust;window.cancelCust=cancelCust;window.installApp=installApp;
+window.newExpense=newExpense;window.editExpense=editExpense;window.saveExpense=saveExpense;window.calcExpGst=calcExpGst;
 </script>
 </body>
 </html>
